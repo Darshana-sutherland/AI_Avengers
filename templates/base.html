@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}HR Dashboard{% endblock %}</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="d-flex flex-column min-vh-100">
+    <!-- Top Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('index') }}">
+                <i class="fas fa-user-tie me-2"></i>
+                <span>HR Portal</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">
+                            <i class="fas fa-home me-1"></i> Home
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">
+                            <i class="fas fa-users me-1"></i> Candidates
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">
+                            <i class="fas fa-chart-bar me-1"></i> Analytics
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">
+                            <i class="fas fa-cog me-1"></i> Settings
+                        </a>
+                    </li>
+                </ul>
+                <div class="dropdown">
+                    <a class="nav-link dropdown-toggle text-white" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-user-circle me-1"></i>
+                        {% if 'user_id' in session %}HR-{{ session['user_id'] }}{% else %}Guest{% endif %}
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-user me-2"></i>Profile</a></li>
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i>Settings</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
+                <div class="position-sticky pt-3">
+                    <div class="d-flex justify-content-between align-items-center mb-4 px-3">
+                        <h5 class="text-muted">Menu</h5>
+                        <button class="btn btn-sm btn-outline-secondary d-md-none" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">
+                                <i class="fas fa-tachometer-alt me-2"></i>
+                                Dashboard Overview
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" id="screenResumesBtn">
+                                <i class="fas fa-search me-2"></i>
+                                Candidate Screening
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#">
+                                <i class="fas fa-chart-pie me-2"></i>
+                                Analytics
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#">
+                                <i class="fas fa-briefcase me-2"></i>
+                                Manage Job Listings
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#">
+                                <i class="fas fa-file-alt me-2"></i>
+                                Reports
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#">
+                                <i class="fas fa-cog me-2"></i>
+                                Settings
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                {% block content %}{% endblock %}
+            </main>
+
+    <!-- Loading Modal -->
+    <div class="modal fade" id="loadingModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-body text-center p-4">
+                    <div class="spinner-border text-primary mb-3" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h5 id="loadingMessage">Processing...</h5>
+                    <div class="progress mt-3">
+                        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Custom JS -->
+    <script>
+        // Show/hide upload section
+        $(document).ready(function() {
+            // Toggle upload section
+            $('#uploadJdBtn').click(function(e) {
+                e.preventDefault();
+                $('#uploadSection').toggle();
+            });
+
+            // Handle JD upload
+            $('#uploadJdForm').on('submit', function(e) {
+                e.preventDefault();
+                const fileInput = $('#jobDescription')[0];
+                
+                if (fileInput.files.length === 0) {
+                    alert('Please select a file to upload');
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('job_description', fileInput.files[0]);
+
+                showLoading('Uploading job description...');
+                
+                $.ajax({
+                    url: '/upload_jd',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        hideLoading();
+                        alert('Job description uploaded successfully!');
+                        $('#uploadSection').hide();
+                    },
+                    error: function(xhr) {
+                        hideLoading();
+                        alert('Error: ' + (xhr.responseJSON?.error || 'Failed to upload job description'));
+                    }
+                });
+            });
+
+            // Handle screen resumes
+            $('#screenResumesBtn').click(function(e) {
+                e.preventDefault();
+                
+                if (!confirm('Start screening all resumes? This may take a few moments.')) {
+                    return;
+                }
+
+                showLoading('Screening resumes...');
+                
+                $.ajax({
+                    url: '/screen_resumes',
+                    type: 'POST',
+                    success: function(response) {
+                        hideLoading();
+                        
+                        if (response.error) {
+                            alert('Error: ' + response.error);
+                            return;
+                        }
+                        
+                        // Update results table
+                        const tbody = $('#resultsBody');
+                        tbody.empty();
+                        
+                        if (response.results && response.results.length > 0) {
+                            response.results.forEach((result, index) => {
+                                const row = `
+                                    <tr>
+                                        <td>${index + 1}</td>
+                                        <td>${result.name}</td>
+                                        <td>${result.email}</td>
+                                        <td>
+                                            <div class="progress">
+                                                <div class="progress-bar" role="progressbar" 
+                                                     style="width: ${result.score}%" 
+                                                     aria-valuenow="${result.score}" 
+                                                     aria-valuemin="0" 
+                                                     aria-valuemax="100">
+                                                    ${result.score}%
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-success">Screened</span>
+                                        </td>
+                                    </tr>
+                                `;
+                                tbody.append(row);
+                            });
+                            
+                            // Show download button
+                            $('#downloadResultsBtn').show();
+                            
+                            // Update status
+                            $('#screeningStatus').html(`
+                                <span class="text-success">
+                                    <i class="fas fa-check-circle me-1"></i>
+                                    Screening completed: ${response.results.length} candidates processed
+                                </span>
+                            `);
+                            
+                        } else {
+                            tbody.append('<tr><td colspan="5" class="text-center">No results found</td></tr>');
+                        }
+                    },
+                    error: function(xhr) {
+                        hideLoading();
+                        alert('Error: ' + (xhr.responseJSON?.error || 'Failed to screen resumes'));
+                    }
+                });
+            });
+        });
+
+        // Loading modal functions
+        function showLoading(message) {
+            $('#loadingMessage').text(message || 'Processing...');
+            $('#progressBar').css('width', '0%');
+            $('#loadingModal').modal('show');
+            
+            // Simulate progress if needed
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 10;
+                if (progress > 90) clearInterval(interval);
+                $('#progressBar').css('width', progress + '%');
+            }, 500);
+        }
+
+        function hideLoading() {
+            $('#loadingModal').modal('hide');
+            $('#progressBar').css('width', '0%');
+        }
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
