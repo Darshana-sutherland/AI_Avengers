@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recruitment Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { background-color: #f8f9fa; min-height: 100vh; }
+        .card { border: none; border-radius: 1rem; box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.1); }
+        .role-icon { font-size: 3rem; margin-bottom: 1.5rem; }
+        .hr-card { border-top: 5px solid #4e73df; }
+        .candidate-card { border-top: 5px solid #1cc88a; }
+        .role-card { transition: all 0.3s; cursor: pointer; }
+        .role-card:hover { transform: translateY(-5px); box-shadow: 0 1rem 2rem rgba(0,0,0,0.15); }
+        .d-none { display: none; }
+        .sidebar { width: 250px; height: 100vh; position: fixed; left: 0; top: 0; background: #fff; box-shadow: 0 0 1rem rgba(0,0,0,0.1); }
+        .main-content { margin-left: 250px; padding: 2rem; }
+        .nav-link { color: #5a5c69; padding: 1rem; }
+        .nav-link:hover, .nav-link.active { color: #4e73df; background: #f8f9fc; }
+        .nav-link i { margin-right: 0.5rem; width: 20px; text-align: center; }
+    </style>
+</head>
+<body>
+    <!-- Role Selection Screen -->
+    <div id="role-selection" class="container d-flex align-items-center justify-content-center" style="min-height: 100vh;">
+        <div class="text-center">
+            <h1 class="mb-5">Welcome to Recruitment Portal</h1>
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="card role-card h-100 p-4 hr-card" onclick="showLoginForm('hr')">
+                        <div class="card-body text-center">
+                            <div class="role-icon text-primary">
+                                <i class="fas fa-user-tie"></i>
+                            </div>
+                            <h3>HR Professional</h3>
+                            <p class="text-muted">Manage candidates, job postings, and recruitment process.</p>
+                            <button class="btn btn-outline-primary">Continue as HR</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card role-card h-100 p-4 candidate-card" onclick="showLoginForm('candidate')">
+                        <div class="card-body text-center">
+                            <div class="role-icon text-success">
+                                <i class="fas fa-user-graduate"></i>
+                            </div>
+                            <h3>Job Seeker</h3>
+                            <p class="text-muted">Apply for jobs and track your applications.</p>
+                            <button class="btn btn-outline-success">Continue as Candidate</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Form -->
+    <div id="login-form" class="container d-flex align-items-center justify-content-center d-none" style="min-height: 100vh;">
+        <div class="card p-4" style="width: 400px;">
+            <div class="text-center mb-4">
+                <h2 id="login-title">Login</h2>
+                <p class="text-muted">Please enter your credentials</p>
+            </div>
+            <form onsubmit="event.preventDefault(); login();">
+                <div class="mb-3">
+                    <label for="user-id" id="user-id-label" class="form-label">User ID</label>
+                    <input type="text" class="form-control" id="user-id" required>
+                </div>
+                <div class="mb-4">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" class="form-control" id="password" required>
+                </div>
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">Login</button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="logout()">Back to Role Selection</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Dashboard Container -->
+    <div id="dashboard" class="d-flex d-none">
+        <!-- HR Dashboard -->
+        <div id="hr-sections" class="d-none">
+        <div class="sidebar p-3">
+            <h4 class="text-center mb-4">HR Portal</h4>
+            <ul class="nav flex-column">
+                <li class="nav-item">
+                    <a class="nav-link active" href="#" onclick="showSection('dashboard-hr')">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="showSection('candidates')">
+                        <i class="fas fa-users"></i> Candidates
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="showSection('jobs')">
+                        <i class="fas fa-briefcase"></i> Jobs
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="showSection('screening')">
+                        <i class="fas fa-search"></i> Resume Screening
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="showSection('resume-db')">
+                        <i class="fas fa-database"></i> Resume Database
+                    </a>
+                </li>
+                <li class="nav-item mt-4">
+                    <a class="nav-link text-danger" href="#" onclick="logout()">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        <div class="main-content">
+            <!-- HR Dashboard Section -->
+            <div id="dashboard-hr" class="section">
+                <h2 class="mb-4">HR Dashboard Overview</h2>
+                <div class="row">
+                    <div class="col-md-4 mb-4">
+                        <div class="card bg-primary text-white h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">New Applications</h5>
+                                <h2 class="mb-0">24</h2>
+                                <p class="card-text">+5 from yesterday</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-4">
+                        <div class="card bg-success text-white h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">Active Jobs</h5>
+                                <h2 class="mb-0">8</h2>
+                                <p class="card-text">3 in final stage</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-4">
+                        <div class="card bg-warning text-dark h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">Interviews Today</h5>
+                                <h2 class="mb-0">5</h2>
+                                <p class="card-text">2 pending feedback</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Add more HR-specific content here -->
+            </div>
+
+            <!-- Candidates Section -->
+            <div id="candidates" class="section d-none">
+                <h2 class="mb-4">Candidates</h2>
+                <div class="card p-4">
+                    <div class="d-flex justify-content-between mb-4">
+                        <input type="text" class="form-control w-50" placeholder="Search candidates...">
+                        <button class="btn btn-primary">Add Candidate</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Position</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>John Smith</td>
+                                    <td>Frontend Developer</td>
+                                    <td><span class="badge bg-warning">Interview</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-info text-white">View</button>
+                                        <button class="btn btn-sm btn-success">Hire</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Jobs Section -->
+            <div id="jobs" class="section d-none">
+                <h2 class="mb-4">Job Openings</h2>
+                <div class="card p-4">
+                    <button class="btn btn-primary mb-4" data-bs-toggle="modal" data-bs-target="#addJobModal">
+                        Add New Job
+                    </button>
+                    <div class="list-group">
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h5>Senior Frontend Developer</h5>
+                                    <p class="mb-1">React, TypeScript, Redux</p>
+                                    <small class="text-muted">Posted: 2023-09-15</small>
+                                </div>
+                                <div>
+                                    <span class="badge bg-primary">5 Applications</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resume Database Section -->
+            <div id="resume-db" class="section d-none">
+                <h2 class="mb-4">Resume Database</h2>
+                <div class="card p-4">
+                    <div class="mb-4">
+                        <h5>Upload New Resume</h5>
+                        <div class="input-group mb-3">
+                            <input type="text" id="candidateName" class="form-control" placeholder="Candidate Name" required>
+                            <input type="email" id="candidateEmail" class="form-control" placeholder="Email" required>
+                        </div>
+                        <div class="input-group mb-3">
+                            <input type="text" id="candidatePhone" class="form-control" placeholder="Phone">
+                            <input type="text" id="candidatePosition" class="form-control" placeholder="Position Applied For">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Upload Resume (PDF/DOCX)</label>
+                            <input type="file" id="resumeFile" class="form-control" accept=".pdf,.docx" required>
+                        </div>
+                        <button class="btn btn-primary" onclick="addResume()">
+                            <i class="fas fa-upload me-2"></i>Upload Resume
+                        </button>
+                    </div>
+
+                    <h5 class="mt-4">Resume Library</h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Position</th>
+                                    <th>Date Added</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resumeTableBody">
+                                <!-- Will be populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resume Screening Section -->
+            <div id="screening" class="section d-none">
+                <h2 class="mb-4">Resume Screening</h2>
+                <div class="card p-4">
+                    <div class="mb-4">
+                        <h5>Upload Job Description</h5>
+                        <input type="file" class="form-control mb-2">
+                        <button class="btn btn-primary">Upload & Process</button>
+                    </div>
+                    <div class="mt-4">
+                        <h5>Upload Resumes</h5>
+                        <input type="file" class="form-control mb-2" multiple>
+                        <button class="btn btn-success">Upload & Screen</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Candidate Dashboard -->
+        <div id="candidate-sections" class="d-none">
+        <nav class="navbar navbar-expand-lg navbar-light bg-light">
+            <div class="container">
+                <a class="navbar-brand" href="#">Job Portal</a>
+                <div class="ms-auto">
+                    <button class="btn btn-outline-danger" onclick="logout()">Logout</button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container mt-4">
+            <h2>Welcome, Candidate!</h2>
+            <div class="row mt-4">
+                <div class="col-md-8">
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <h5 class="card-title">Available Jobs</h5>
+                            <div class="list-group">
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h6>Senior Frontend Developer</h6>
+                                            <p class="mb-1 text-muted">Company XYZ</p>
+                                            <span class="badge bg-primary">React</span>
+                                            <span class="badge bg-secondary">TypeScript</span>
+                                        </div>
+                                        <button class="btn btn-primary btn-sm align-self-center">Apply Now</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Your Applications</h5>
+                            <ul class="list-group">
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Frontend Developer</span>
+                                    <span class="badge bg-warning">In Review</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Job Modal -->
+    <div class="modal fade" id="addJobModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Job</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form>
+                        <div class="mb-3">
+                            <label class="form-label">Job Title</label>
+                            <input type="text" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Requirements</label>
+                            <textarea class="form-control" rows="3" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Post Job</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // In-memory database for users
+        const users = {
+            hr: [
+                { id: 'hr1', password: 'hr123', name: 'HR Manager' },
+                { id: 'admin', password: 'admin123', name: 'Admin' }
+            ],
+            candidate: [
+                { id: 'cand1', password: 'cand123', name: 'John Doe', email: 'john.doe@example.com' },
+                { id: 'cand2', password: 'cand123', name: 'Jane Smith', email: 'jane.smith@example.com' }
+            ]
+        };
+
+        // Current user
+        let currentUser = null;
+
+        // Role selection
+        let selectedRole = '';
+
+        // Show login form for selected role
+        function showLoginForm(role) {
+            selectedRole = role;
+            document.getElementById('role-selection').classList.add('d-none');
+            document.getElementById('login-form').classList.remove('d-none');
+            document.getElementById('login-title').textContent = `Login as ${role === 'hr' ? 'HR Professional' : 'Candidate'}`;
+            document.getElementById('user-id-label').textContent = `${role === 'hr' ? 'HR' : 'Candidate'} ID`;
+        }
+
+        // Handle login
+        function login() {
+            const userId = document.getElementById('user-id').value;
+            const password = document.getElementById('password').value;
+            
+            if (!userId || !password) {
+                alert('Please enter both ID and password');
+                return;
+            }
+
+            const user = users[selectedRole].find(u => u.id === userId && u.password === password);
+            
+            if (user) {
+                currentUser = { ...user, role: selectedRole };
+                showDashboard();
+            } else {
+                alert('Invalid credentials. Please try again.');
+            }
+        }
+
+        // Show dashboard after login
+        function showDashboard() {
+            document.getElementById('login-form').classList.add('d-none');
+            document.getElementById('dashboard').classList.remove('d-none');
+            
+            // Update welcome message
+            document.getElementById('welcome-message').textContent = 
+                `Welcome, ${currentUser.name} (${currentUser.role === 'hr' ? 'HR Professional' : 'Candidate'})`;
+            
+            // Show role-specific content
+            if (currentUser.role === 'hr') {
+                document.getElementById('hr-sections').classList.remove('d-none');
+                document.getElementById('candidate-sections').classList.add('d-none');
+                document.getElementById('dashboard').id = 'hr-dashboard';
+                showSection('dashboard-hr');
+            } else {
+                document.getElementById('hr-sections').classList.add('d-none');
+                document.getElementById('candidate-sections').classList.remove('d-none');
+                document.getElementById('dashboard').id = 'candidate-dashboard';
+                showSection('dashboard-candidate');
+            }
+        }
+
+        // Logout
+        function logout() {
+            currentUser = null;
+            selectedRole = '';
+            document.getElementById('dashboard').classList.add('d-none');
+            document.getElementById('login-form').classList.add('d-none');
+            document.getElementById('role-selection').classList.remove('d-none');
+            
+            // Reset forms
+            document.getElementById('user-id').value = '';
+            document.getElementById('password').value = '';
+        }
+
+        // In-memory database for resumes
+        let resumeDatabase = [
+            {
+                id: 1,
+                name: 'John Smith',
+                email: 'john.smith@example.com',
+                phone: '(555) 123-4567',
+                position: 'Senior Developer',
+                fileName: 'john_smith_resume.pdf',
+                dateAdded: '2023-09-20',
+                status: 'New'
+            },
+            {
+                id: 2,
+                name: 'Sarah Johnson',
+                email: 'sarah.j@example.com',
+                phone: '(555) 987-6543',
+                position: 'UX Designer',
+                fileName: 'sarah_johnson_cv.docx',
+                dateAdded: '2023-09-18',
+                status: 'Reviewed'
+            }
+        ];
+
+        // Generate a unique ID for new resumes
+        function generateId() {
+            return Date.now();
+        }
+
+        // Format date to YYYY-MM-DD
+        function formatDate(date = new Date()) {
+            return date.toISOString().split('T')[0];
+        }
+
+        // Add a new resume to the database
+        function addResume() {
+            const name = document.getElementById('candidateName').value;
+            const email = document.getElementById('candidateEmail').value;
+            const phone = document.getElementById('candidatePhone').value || 'N/A';
+            const position = document.getElementById('candidatePosition').value || 'Not specified';
+            const fileInput = document.getElementById('resumeFile');
+            
+            if (!name || !email || !fileInput.files[0]) {
+                alert('Please fill in all required fields');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const newResume = {
+                id: generateId(),
+                name: name,
+                email: email,
+                phone: phone,
+                position: position,
+                fileName: file.name,
+                dateAdded: formatDate(),
+                status: 'New',
+                fileSize: (file.size / 1024).toFixed(2) + ' KB',
+                fileType: file.type
+            };
+
+            resumeDatabase.unshift(newResume);
+            renderResumeTable();
+            
+            // Reset form
+            document.getElementById('candidateName').value = '';
+            document.getElementById('candidateEmail').value = '';
+            document.getElementById('candidatePhone').value = '';
+            document.getElementById('candidatePosition').value = '';
+            fileInput.value = '';
+
+            alert('Resume uploaded successfully!');
+        }
+
+        // Delete a resume from the database
+        function deleteResume(id) {
+            if (confirm('Are you sure you want to delete this resume?')) {
+                resumeDatabase = resumeDatabase.filter(resume => resume.id !== id);
+                renderResumeTable();
+            }
+        }
+
+        // View resume details
+        function viewResume(id) {
+            const resume = resumeDatabase.find(r => r.id === id);
+            if (resume) {
+                // In a real app, this would open the actual file
+                alert(`Viewing resume for ${resume.name}\n\n` +
+                      `Email: ${resume.email}\n` +
+                      `Phone: ${resume.phone}\n` +
+                      `Position: ${resume.position}\n` +
+                      `File: ${resume.fileName} (${resume.fileSize || 'size not available'})\n` +
+                      `Status: ${resume.status}`);
+            }
+        }
+
+        // Render the resume table
+        function renderResumeTable() {
+            const tbody = document.getElementById('resumeTableBody');
+            tbody.innerHTML = '';
+
+            if (resumeDatabase.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center">No resumes found</td></tr>';
+                return;
+            }
+
+            resumeDatabase.forEach(resume => {
+                const row = document.createElement('tr');
+                const statusClass = {
+                    'New': 'bg-primary',
+                    'Reviewed': 'bg-info text-dark',
+                    'Interview': 'bg-warning text-dark',
+                    'Hired': 'bg-success',
+                    'Rejected': 'bg-danger'
+                }[resume.status] || 'bg-secondary';
+
+                row.innerHTML = `
+                    <td>${resume.name}</td>
+                    <td>${resume.email}</td>
+                    <td>${resume.position}</td>
+                    <td>${resume.dateAdded}</td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-info text-white" onclick="viewResume(${resume.id})">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn btn-primary" onclick="downloadResume(${resume.id})">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-sm ${statusClass} dropdown-toggle" data-bs-toggle="dropdown">
+                                    ${resume.status}
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="#" onclick="updateStatus(${resume.id}, 'New')">New</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="updateStatus(${resume.id}, 'Reviewed')">Reviewed</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="updateStatus(${resume.id}, 'Interview')">Interview</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="updateStatus(${resume.id}, 'Hired')">Hired</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="updateStatus(${resume.id}, 'Rejected')">Rejected</a></li>
+                                </ul>
+                            </div>
+                            <button class="btn btn-danger" onclick="deleteResume(${resume.id})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Update resume status
+        function updateStatus(id, status) {
+            const resume = resumeDatabase.find(r => r.id === id);
+            if (resume) {
+                resume.status = status;
+                renderResumeTable();
+            }
+            return false; // Prevent default action
+        }
+
+        // Simulate resume download
+        function downloadResume(id) {
+            const resume = resumeDatabase.find(r => r.id === id);
+            if (resume) {
+                // In a real app, this would trigger a file download
+                alert(`In a real application, this would download: ${resume.fileName}`);
+                // Simulate download
+                console.log(`Downloading ${resume.fileName}`);
+            }
+        }
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            renderResumeTable();
+            
+            // Initialize tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        });
+
+        // Show/hide sections
+        function showSection(sectionId) {
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.add('d-none');
+            });
+            document.getElementById(sectionId).classList.remove('d-none');
+            
+            // Update active nav link
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            event.currentTarget.classList.add('active');
+        }
+
+        // Role selection
+        function selectRole(role) {
+            document.getElementById('role-selection').classList.add('d-none');
+            if (role === 'hr') {
+                document.getElementById('hr-dashboard').classList.remove('d-none');
+            } else {
+                document.getElementById('candidate-dashboard').classList.remove('d-none');
+            }
+        }
+
+        // Logout
+        function logout() {
+            document.getElementById('hr-dashboard').classList.add('d-none');
+            document.getElementById('candidate-dashboard').classList.add('d-none');
+            document.getElementById('role-selection').classList.remove('d-none');
+        }
+
+        // Initialize modals
+        var modals = new bootstrap.Modal(document.getElementById('addJobModal'));
+    </script>
+</body>
+</html>

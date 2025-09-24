@@ -1,5 +1,7 @@
-from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for, session, flash
+from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for, session, flash, send_from_directory
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
 import os
 import PyPDF2
 import openpyxl
@@ -12,16 +14,92 @@ from googleapiclient.http import MediaIoBaseDownload
 import io
 import json
 import os.path
+from datetime import datetime
+import sqlite3
+from flask_sqlalchemy import SQLAlchemy
+from flask_wtf.csrf import CSRFProtect
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.secret_key = 'your-secret-key-here'  # Change this in production
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///recruitment.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Dummy user credentials
-USERS = {
-    '101': '1234'
-}
+# Initialize extensions
+db = SQLAlchemy(app)
+csrf = CSRFProtect(app)
+
+# Models
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password = db.Column(db.String(255), nullable=False)
+    role = db.Column(db.String(20), nullable=False)  # 'hr' or 'candidate'
+    name = db.Column(db.String(100))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Job(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    requirements = db.Column(db.Text)
+    location = db.Column(db.String(100))
+    company = db.Column(db.String(100))
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Application(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    candidate_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=False)
+    resume_path = db.Column(db.String(500), nullable=False)
+    cover_letter = db.Column(db.Text)
+    status = db.Column(db.String(20), default='Pending')  # Pending, Reviewed, Accepted, Rejected
+    applied_date = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    candidate = db.relationship('User', backref='applications')
+    job = db.relationship('Job')
+
+# Create database tables
+with app.app_context():
+    db.create_all()
+
+# Dummy HR user (for demo purposes only)
+with app.app_context():
+    if not User.query.filter_by(username='hr101').first():
+        hr_user = User(
+            username='hr101',
+            email='hr@example.com',
+            password=generate_password_hash('hr1234'),
+            role='hr',
+            name='HR Manager'
+        )
+        db.session.add(hr_user)
+        db.session.commit()
+
+    # Add some sample jobs if none exist
+    if Job.query.count() == 0:
+        jobs = [
+            Job(
+                title='Senior Software Engineer',
+                company='Tech Corp',
+                location='New York, NY',
+                description='We are looking for an experienced software engineer...',
+                requirements='5+ years of experience with Python and web development...'
+            ),
+            Job(
+                title='Product Manager',
+                company='Innovate Inc',
+                location='Remote',
+                description='Lead our product development team...',
+                requirements='3+ years of product management experience...'
+            )
+        ]
+        db.session.bulk_save_objects(jobs)
+        db.session.commit()
 
 # Google Drive API Setup
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
@@ -62,38 +140,144 @@ def screen_resume(resume_text, job_description):
     score = (matched / len(keywords)) * 100 if keywords else 0
     return min(100, round(score, 2))
 
-def login_required(f):
-    def decorated_function(*args, **kwargs):
-        if 'user_id' not in session:
-            return redirect(url_for('login', next=request.url))
-        return f(*args, **kwargs)
-    decorated_function.__name__ = f.__name__
-    return decorated_function
+def login_required(role=None):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if 'user_id' not in session:
+                return redirect(url_for('role_selection', next=request.url))
+            
+            user = User.query.get(session['user_id'])
+            if not user:
+                session.pop('user_id', None)
+                return redirect(url_for('role_selection', next=request.url))
+                
+            if role and user.role != role:
+                flash('You do not have permission to access this page.', 'danger')
+                return redirect(url_for(f'{user.role}_dashboard'))
+                
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
 
+# Routes
 @app.route('/')
-@login_required
-def index():
-    return render_template('index.html')
+def role_selection():
+    if 'user_id' in session:
+        user = User.query.get(session['user_id'])
+        if user.role == 'hr':
+            return redirect(url_for('hr_dashboard'))
+        else:
+            return redirect(url_for('candidate_dashboard'))
+    return render_template('role_selection.html')
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
+@app.route('/login/<role>', methods=['GET', 'POST'])
+def login(role):
     if request.method == 'POST':
-        user_id = request.form.get('user_id')
+        username = request.form.get('username')
         password = request.form.get('password')
         
-        if user_id in USERS and USERS[user_id] == password:
-            session['user_id'] = user_id
+        user = User.query.filter_by(username=username, role=role).first()
+        
+        if user and check_password_hash(user.password, password):
+            session['user_id'] = user.id
             next_page = request.args.get('next')
-            return redirect(next_page or url_for('index'))
+            
+            if role == 'hr':
+                return redirect(next_page or url_for('hr_dashboard'))
+            else:
+                return redirect(next_page or url_for('candidate_dashboard'))
         else:
-            flash('Invalid ID or password. Please try again.', 'danger')
+            flash('Invalid credentials. Please try again.', 'danger')
     
-    return render_template('login.html')
+    if role == 'hr':
+        return render_template('hr_login.html')
+    else:
+        return render_template('candidate_login.html', role=role)
+
+@app.route('/hr/dashboard')
+@login_required(role='hr')
+def hr_dashboard():
+    return render_template('index.html')
+
+@app.route('/candidate/dashboard')
+@login_required(role='candidate')
+def candidate_dashboard():
+    user = User.query.get(session['user_id'])
+    applications = Application.query.filter_by(candidate_id=user.id).all()
+    available_jobs = Job.query.filter_by(is_active=True).all()
+    
+    return render_template('candidate_dashboard.html', 
+                         current_user=user,
+                         applications=applications,
+                         available_jobs=available_jobs)
+
+@app.route('/candidate/apply', methods=['POST'])
+@login_required(role='candidate')
+def submit_application():
+    if 'resume' not in request.files:
+        flash('No file uploaded', 'danger')
+        return redirect(request.url)
+    
+    resume = request.files['resume']
+    if resume.filename == '':
+        flash('No selected file', 'danger')
+        return redirect(request.url)
+    
+    if resume:
+        # Save the resume file
+        filename = secure_filename(f"{session['user_id']}_{int(datetime.now().timestamp())}_{resume.filename}")
+        resume_path = os.path.join(app.config['UPLOAD_FOLDER'], 'resumes', filename)
+        os.makedirs(os.path.dirname(resume_path), exist_ok=True)
+        resume.save(resume_path)
+        
+        # Create application record
+        application = Application(
+            candidate_id=session['user_id'],
+            job_id=request.form.get('job_id'),
+            resume_path=resume_path,
+            cover_letter=request.form.get('cover_letter'),
+            status='Pending'
+        )
+        db.session.add(application)
+        db.session.commit()
+        
+        flash('Application submitted successfully!', 'success')
+        return redirect(url_for('candidate_dashboard'))
+    
+    flash('Error processing your application', 'danger')
+    return redirect(url_for('candidate_dashboard'))
+
+@app.route('/candidate/upload-resume', methods=['POST'])
+@login_required(role='candidate')
+def upload_resume():
+    if 'resume' not in request.files:
+        flash('No file uploaded', 'danger')
+        return redirect(url_for('candidate_dashboard'))
+    
+    resume = request.files['resume']
+    if resume.filename == '':
+        flash('No selected file', 'danger')
+        return redirect(url_for('candidate_dashboard'))
+    
+    if resume:
+        # Save the resume file
+        filename = secure_filename(f"{session['user_id']}_{int(datetime.now().timestamp())}_{resume.filename}")
+        resume_path = os.path.join(app.config['UPLOAD_FOLDER'], 'resumes', filename)
+        os.makedirs(os.path.dirname(resume_path), exist_ok=True)
+        resume.save(resume_path)
+        
+        # Update user's resume path (or create a new resume record)
+        # This is a simplified example - you might want to create a separate Resume model
+        
+        flash('Resume uploaded successfully!', 'success')
+    
+    return redirect(url_for('candidate_dashboard'))
 
 @app.route('/logout')
 def logout():
     session.pop('user_id', None)
-    return redirect(url_for('login'))
+    return redirect(url_for('role_selection'))
 
 @app.route('/upload_jd', methods=['POST'])
 @login_required
@@ -113,8 +297,8 @@ def upload_jd():
         return jsonify({'message': 'Job description uploaded successfully'})
 
 @app.route('/screen_resumes', methods=['POST'])
-@login_required
-async def screen_resumes():
+@login_required(role='hr')
+def screen_resumes():
     try:
         # Get job description
         jd_path = os.path.join(app.config['UPLOAD_FOLDER'], 'jd.pdf')
@@ -124,30 +308,51 @@ async def screen_resumes():
         with open(jd_path, 'rb') as jd_file:
             job_description = extract_text_from_pdf(jd_file)
         
-        # Get resumes from Google Drive (simplified for demo)
-        # In production, you would connect to Google Drive API here
-        # For now, we'll use a placeholder
-        resumes = [
-            {'name': 'John Doe', 'email': 'john@example.com', 'file_id': 'sample1'},
-            {'name': 'Jane Smith', 'email': 'jane@example.com', 'file_id': 'sample2'},
-        ]
-        
-        # Process resumes
-        results = []
-        for resume in resumes:
-            # In production, download the file from Google Drive using file_id
-            # For demo, we'll use a placeholder
-            resume_text = f"Resume for {resume['name']}. {job_description[:100]}"  # Simplified for demo
-            score = screen_resume(resume_text, job_description)
+        # Get resumes from uploads folder
+        resumes_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'resumes')
+        if not os.path.exists(resumes_dir):
+            return jsonify({'error': 'No resumes found. Please upload some resumes first.'}), 400
             
-            results.append({
-                'name': resume['name'],
-                'email': resume['email'],
-                'score': score
-            })
+        # Get list of resume files
+        resume_files = [f for f in os.listdir(resumes_dir) if f.lower().endswith(('.pdf', '.doc', '.docx'))]
         
-        # Sort by score (descending)
+        if not resume_files:
+            return jsonify({'error': 'No valid resume files found. Please upload PDF or Word documents.'}), 400
+        
+        # Process each resume
+        results = []
+        for resume_file in resume_files:
+            try:
+                resume_path = os.path.join(resumes_dir, resume_file)
+                with open(resume_path, 'rb') as f:
+                    resume_text = extract_text_from_pdf(f) if resume_file.lower().endswith('.pdf') else ""
+                    # For non-PDF files, you might want to add text extraction for .doc/.docx
+                    if not resume_text and resume_file.lower().endswith(('.doc', '.docx')):
+                        resume_text = f"[Content from {resume_file} - text extraction for .doc/.docx not implemented]"
+                    
+                    # Simple scoring based on keyword matching
+                    score = screen_resume(resume_text, job_description)
+                    
+                    # Get candidate info from filename or database
+                    # For now, we'll use the filename
+                    candidate_name = ' '.join(resume_file.split('_')[:-2])  # Remove timestamp and extension
+                    
+                    results.append({
+                        'name': candidate_name,
+                        'email': f"{candidate_name.replace(' ', '.').lower()}@example.com",
+                        'score': score,
+                        'status': 'Pending Review',
+                        'resume': resume_file
+                    })
+            except Exception as e:
+                print(f"Error processing {resume_file}: {str(e)}")
+                continue
+        
+        # Sort results by score (highest first)
         results.sort(key=lambda x: x['score'], reverse=True)
+        
+        # Save results to session for download
+        session['screening_results'] = results
         
         # Save to Excel
         wb = Workbook()
@@ -170,16 +375,16 @@ async def screen_resumes():
         wb.save(excel_path)
         
         return jsonify({
-            'message': 'Screening completed',
+            'message': f'Successfully screened {len(results)} resumes',
             'results': results,
             'excel_path': excel_path
         })
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f'Error screening resumes: {str(e)}'}), 500
 
 @app.route('/download_results')
-@login_required
+@login_required(role='hr')
 def download_results():
     excel_path = os.path.join(app.config['UPLOAD_FOLDER'], 'screened_candidates.xlsx')
     if not os.path.exists(excel_path):
