@@ -204,12 +204,23 @@ def hr_dashboard():
 @login_required(role='candidate')
 def candidate_dashboard():
     user = User.query.get(session['user_id'])
-    applications = Application.query.filter_by(candidate_id=user.id).all()
+    
+    # Load resume database
+    resume_db_path = os.path.join(app.config['UPLOAD_FOLDER'], 'resume_database.json')
+    resume_database = []
+    if os.path.exists(resume_db_path):
+        with open(resume_db_path, 'r') as f:
+            resume_database = json.load(f)
+    
+    # Filter applications for current user
+    user_applications = [app for app in resume_database if app.get('email') == user.email]
+    
+    # Get available jobs
     available_jobs = Job.query.filter_by(is_active=True).all()
     
     return render_template('candidate_dashboard.html', 
                          current_user=user,
-                         applications=applications,
+                         applications=user_applications,
                          available_jobs=available_jobs)
 
 @app.route('/candidate/apply', methods=['POST'])
@@ -225,22 +236,60 @@ def submit_application():
         return redirect(request.url)
     
     if resume:
+        # Get job details
+        job_id = request.form.get('job_id')
+        job = Job.query.get(job_id)
+        if not job:
+            flash('Invalid job selected', 'danger')
+            return redirect(url_for('candidate_dashboard'))
+        
         # Save the resume file
         filename = secure_filename(f"{session['user_id']}_{int(datetime.now().timestamp())}_{resume.filename}")
         resume_path = os.path.join(app.config['UPLOAD_FOLDER'], 'resumes', filename)
         os.makedirs(os.path.dirname(resume_path), exist_ok=True)
         resume.save(resume_path)
         
-        # Create application record
+        # Create application record in database
         application = Application(
             candidate_id=session['user_id'],
-            job_id=request.form.get('job_id'),
+            job_id=job_id,
             resume_path=resume_path,
             cover_letter=request.form.get('cover_letter'),
             status='Pending'
         )
         db.session.add(application)
         db.session.commit()
+        
+        # Also add to resume database
+        resume_db_path = os.path.join(app.config['UPLOAD_FOLDER'], 'resume_database.json')
+        resume_data = {
+            'id': str(uuid.uuid4()),
+            'name': request.form.get('full_name', ''),
+            'email': request.form.get('email', ''),
+            'phone': request.form.get('phone', ''),
+            'position': job.title,
+            'company': job.company,
+            'dateAdded': datetime.now().strftime('%Y-%m-%d'),
+            'status': 'New',
+            'source': 'Portal',
+            'fileName': filename,
+            'filePath': resume_path,
+            'applicationId': application.id,
+            'appliedDate': datetime.now().isoformat(),
+            'jobId': job_id
+        }
+        
+        # Load existing data and append new entry
+        existing_data = []
+        if os.path.exists(resume_db_path):
+            with open(resume_db_path, 'r') as f:
+                existing_data = json.load(f)
+        
+        existing_data.append(resume_data)
+        
+        # Save back to file
+        with open(resume_db_path, 'w') as f:
+            json.dump(existing_data, f, indent=2)
         
         flash('Application submitted successfully!', 'success')
         return redirect(url_for('candidate_dashboard'))
