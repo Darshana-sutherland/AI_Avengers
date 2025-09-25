@@ -18,6 +18,7 @@ from datetime import datetime
 import sqlite3
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
+import uuid
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -58,6 +59,9 @@ class Application(db.Model):
     cover_letter = db.Column(db.Text)
     status = db.Column(db.String(20), default='Pending')  # Pending, Reviewed, Accepted, Rejected
     applied_date = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Application details
+    score = db.Column(db.Float, nullable=True)  # Matching score (0-100)
     
     # Relationships
     candidate = db.relationship('User', backref='applications')
@@ -198,7 +202,33 @@ def login(role):
 @app.route('/hr/dashboard')
 @login_required(role='hr')
 def hr_dashboard():
-    return render_template('index.html')
+    # Load resume database for HR view
+    resume_db_path = os.path.join(app.config['UPLOAD_FOLDER'], 'resume_database.json')
+    resume_database = []
+    if os.path.exists(resume_db_path):
+        try:
+            with open(resume_db_path, 'r') as f:
+                resume_database = json.load(f)
+        except Exception:
+            resume_database = []
+
+    # Add default score if not present
+    for app in resume_database:
+        if 'score' not in app:
+            app['score'] = 0  # Default score if not present
+
+    # Sort by date added (desc) if present
+    def _parse_date(entry):
+        try:
+            return datetime.fromisoformat(entry.get('appliedDate') or entry.get('dateAdded', ''))
+        except Exception:
+            return datetime.min
+
+    recent_applications = sorted(resume_database, key=_parse_date, reverse=True)[:20]
+
+    return render_template('index.html', 
+                         recent_applications=recent_applications,
+                         score_num=0)  # Default score for the template
 
 @app.route('/candidate/dashboard')
 @login_required(role='candidate')

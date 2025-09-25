@@ -6,7 +6,7 @@
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-3 mb-4 border-bottom">
     <h1 class="h2">Dashboard Overview</h1>
     <div class="btn-toolbar mb-2 mb-md-0">
-        <button class="btn btn-primary" id="startScreeningBtn">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#startScreeningModal">
             <i class="fas fa-play me-1"></i> Start New Screening
         </button>
     </div>
@@ -119,31 +119,60 @@
                                 <th>Date</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <tr>
-                                <td>1</td>
-                                <td>
-                                    <div class="d-flex align-items-center">
-                                        <div class="avatar me-2">
-                                            <span class="avatar-text bg-primary rounded-circle">JD</span>
+                        <tbody id="resultsBody">
+                            {% if recent_applications %}
+                                {% for app in recent_applications %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar me-2">
+                                                <span class="avatar-text bg-primary rounded-circle">{{ (app.name or 'NA')[:1]|upper }}</span>
+                                            </div>
+                                            <div>
+                                                <div>{{ app.name }}</div>
+                                                <small class="text-muted">{{ app.email }}</small>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <div>John Doe</div>
-                                            <small class="text-muted">john@example.com</small>
+                                    </td>
+                                    <td>{{ app.position or '-' }}</td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if app.status == 'New' %}bg-primary
+                                            {% elif app.status == 'Reviewed' %}bg-info text-dark
+                                            {% elif app.status == 'Interview' %}bg-warning text-dark
+                                            {% elif app.status == 'Hired' %}bg-success
+                                            {% elif app.status == 'Rejected' %}bg-danger
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ app.status or 'New' }}
+                                        </span>
+                                    </td>
+                                    <td style="min-width:140px;">
+                                        {% if app.score is defined and app.score is not none %}
+                                        {% set score_num = app.score|float %}
+                                        {% set width = (score_num * 100)|round(1) %}
+                                        <div class="progress" style="height: 6px;">
+                                            <div class="progress-bar bg-success" 
+                                                 role="progressbar" 
+                                                 style="width: {{ width }}%" 
+                                                 aria-valuenow="{{ width }}" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="100">
+                                            </div>
                                         </div>
-                                    </div>
-                                </td>
-                                <td>Senior Developer</td>
-                                <td><span class="badge bg-warning text-dark">In Review</span></td>
-                                <td>
-                                    <div class="progress" style="height: 6px;">
-                                        <div class="progress-bar bg-success" role="progressbar" style="width: 85%" aria-valuenow="85" aria-valuemin="0" aria-valuemax="100"></div>
-                                    </div>
-                                    <small>85% match</small>
-                                </td>
-                                <td>2 days ago</td>
-                            </tr>
-                            <!-- More rows would go here -->
+                                        <small>{{ width }}% match</small>
+                                        {% else %}
+                                        <span class="text-muted">Not scored yet</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ (app.appliedDate or app.dateAdded) or '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-4 text-muted">No applications yet</td>
+                                </tr>
+                            {% endif %}
                         </tbody>
                     </table>
                 </div>
@@ -199,6 +228,43 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="submit" form="uploadJdForm" class="btn btn-primary">
                     <i class="fas fa-upload me-2"></i>Upload JD
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Start New Screening Modal -->
+<div class="modal fade" id="startScreeningModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Start New Screening</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="startScreeningForm" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="screeningJobTitle" class="form-label">Job Position</label>
+                        <select class="form-select" id="screeningJobTitle" required>
+                            <option selected disabled value="">Choose...</option>
+                            <!-- Job positions would be populated here, e.g., from the backend -->
+                            <option value="1">Software Engineer</option>
+                            <option value="2">Product Manager</option>
+                            <option value="3">UX Designer</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="resumeFiles" class="form-label">Upload Resumes (PDF, DOCX)</label>
+                        <input class="form-control" type="file" id="resumeFiles" accept=".pdf,.docx" multiple required>
+                        <div class="form-text">You can select multiple resume files.</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="startScreeningForm" class="btn btn-primary">
+                    <i class="fas fa-play me-2"></i>Start Screening
                 </button>
             </div>
         </div>
